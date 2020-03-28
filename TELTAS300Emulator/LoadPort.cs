@@ -193,8 +193,11 @@ namespace TELTAS300Emulator
                         {
                             UpdateState(commandName, false);
                             PerformNormalProcessing(commandType, commandName, ctxt,false);
-                            if(commandType.Equals("SET")|| commandType.Equals("MOV"))
-                                SendEvent(true,commandName, $@"/{ForceErrorContext.AfterInterLock.ToString()}", ctxt);
+                            if (commandType.Equals("SET") || commandType.Equals("MOV"))
+                            {
+                                EnforceCommandDelay(commandName);
+                                SendEvent(true, commandName, $@"/{ForceErrorContext.AfterInterLock.ToString()}", ctxt);
+                            }
                             Status = LoadPortStatus.Faulted;
                         }
                     }
@@ -368,7 +371,17 @@ namespace TELTAS300Emulator
             response.Append(";");
             ctxt.ResponseQCallback(AddStartEndToMessage(response.ToString()));
             if(raiseEvent && (commandType.Equals("SET") || commandType.Equals("MOV")))
+            {
+                EnforceCommandDelay(commandName);
                 SendEvent(false, commandName,null, ctxt);
+            }
+        }
+
+        void EnforceCommandDelay(string commandName)
+        {
+            if (AppConfiguration.CommandDelayLookup.ContainsKey(commandName))
+                if (AppConfiguration.CommandDelayLookup[commandName] != 0)
+                    Thread.Sleep(AppConfiguration.CommandDelayLookup[commandName]);
         }
 
         void SendNAK(string commandType, string commandName, string parameter,CommandContext ctxt)

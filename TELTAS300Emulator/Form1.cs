@@ -15,6 +15,7 @@ namespace TELTAS300Emulator
         public Form1()
         {
             InitializeComponent();
+            Win32.AllocConsole();
             SetUp();
         }
 
