@@ -63,12 +63,30 @@ namespace TELTAS300Emulator
         {
             IncomingQ = new BlockingCollection<CommandContext>();
             tcpListener = new TcpWorker(portNum);
+            tcpListener.Connected += TcpListener_Connected;
+            tcpListener.Disconnected += TcpListener_Disconnected;
             Status = LoadPortStatus.Unknown;
             State = new LoadPortState();
             ForceErrorContext = null;
             addressString = index.ToString("D2");
             Casette = new Casette(AppConfiguration.NumberOfSlotsInCasette);
         }
+
+        private void TcpListener_Disconnected(object sender, EventArgs e)
+        {
+            _started = false;
+        }
+
+        private void TcpListener_Connected(object sender, EventArgs e)
+        {
+            if (tcpListener.ActiveConnection.InnerConnection.Connected)
+            {
+                _started = true;
+                SendEvent(false, "E84IO", "/00/80", null);
+                SendEvent(false, Status == LoadPortStatus.Unknown?"PODOF":isCarrierPlaced? "PODON" : "PODOF", null, null);
+            }
+        }
+
         public void AddToIncomingQ(CommandContext commandContext)
         {
             IncomingQ.Add(commandContext);
@@ -87,18 +105,18 @@ namespace TELTAS300Emulator
                 }
             });
 
-            Task.Run(() => 
-            {
-                while (tcpListener.ActiveConnection == null)
-                    Thread.Sleep(1);
+            //Task.Run(() => 
+            //{
+            //    while (tcpListener.ActiveConnection == null)
+            //        Thread.Sleep(1);
 
-                if(tcpListener.ActiveConnection.InnerConnection.Connected)
-                {
-                    _started = true;
-                    SendEvent(false, "E84IO", "/00/80",null);
-                    SendEvent(false, "PODOF", null, null);
-                }
-            });
+            //    if(tcpListener.ActiveConnection.InnerConnection.Connected)
+            //    {
+            //        _started = true;
+            //        SendEvent(false, "E84IO", "/00/80",null);
+            //        SendEvent(false, "PODOF", null, null);
+            //    }
+            //});
 
         }
 

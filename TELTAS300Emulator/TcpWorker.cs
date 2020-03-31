@@ -12,6 +12,9 @@ namespace TELTAS300Emulator
     {
         private readonly int _tcpWorkerLoopIdleTime;
 
+        public event EventHandler Connected;
+        public event EventHandler Disconnected;
+
         private TcpListener _listener;
         //private List<TcpClient> _connections;
         private List<TcpConnection> _connections;
@@ -31,6 +34,16 @@ namespace TELTAS300Emulator
             Port = portNumber;
             _tcpWorkerLoopIdleTime = AppConfiguration.tcpWorkerLoopIdleTime;
             _listener = TcpListener.Create(Port);
+        }
+
+        void OnConnected()
+        {
+            Connected?.Invoke(this, new EventArgs());
+        }
+
+        void OnDisConnected()
+        {
+            Disconnected ?.Invoke(this, new EventArgs());
         }
 
         public void StopWorker()
@@ -61,7 +74,9 @@ namespace TELTAS300Emulator
                             var tcpconn = new TcpConnection(conn);
                             _connections.Add(tcpconn);
                             _activeConnection = tcpconn;
+                            tcpconn.Disconnected += (x, y) => { OnDisConnected(); };
                             tcpconn.Start(addToQCallback);
+                            OnConnected();
                         }
                     }
 
@@ -81,6 +96,11 @@ namespace TELTAS300Emulator
             {
                 throw;
             }
+        }
+
+        private void Tcpconn_Disconnected(object sender, EventArgs e)
+        {
+            throw new NotImplementedException();
         }
     }
 }

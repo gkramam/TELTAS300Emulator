@@ -12,6 +12,8 @@ namespace TELTAS300Emulator
 {
     public class TcpConnection : IDisposable
     {
+
+        public event EventHandler Disconnected;
         private bool _isDisposed;
 
         public TcpClient InnerConnection;
@@ -41,6 +43,10 @@ namespace TELTAS300Emulator
             outgoingQ.Add(message);
         }
 
+        void OnDisconnected()
+        {
+            Disconnected?.Invoke(this, new EventArgs());
+        }
         public void StartWriteLoop()
         {
             Stream s = InnerConnection.GetStream();
@@ -53,12 +59,22 @@ namespace TELTAS300Emulator
                 {
                     foreach (var msg in outgoingQ.GetConsumingEnumerable())
                     {
-                        if (InnerConnection.Client.Poll(-1, SelectMode.SelectWrite))
+                        try
                         {
-                            sw.Write(msg);
+                            if (InnerConnection.Client.Poll(-1, SelectMode.SelectWrite))
+                            {
+                                sw.Write(msg);
+                            }
+                            if (Stop)
+                                break;
                         }
-                        if (Stop)
-                            break;
+                        catch(SocketException e)
+                        {
+                            if(InnerConnection == null || !InnerConnection.Connected)
+                            {
+                                OnDisconnected();
+                            }
+                        }
                     }
                     if (!Stop)
                         Console.WriteLine("Writer - Connection Closed");
@@ -77,12 +93,22 @@ namespace TELTAS300Emulator
                 {
                     while (!Stop && InnerConnection.Connected)
                     {
-                        if (InnerConnection.Client.Poll(-1, SelectMode.SelectRead))
+                        try
                         {
-                            var amt = InnerConnection.ReceiveBufferSize;
-                            char[] readBuffer = new char[amt];
-                            var length = sr.Read(readBuffer, 0, amt);
-                            readBufferQ.Add(readBuffer.Take(length).ToArray());
+                            if (InnerConnection.Client.Poll(-1, SelectMode.SelectRead))
+                            {
+                                var amt = InnerConnection.ReceiveBufferSize;
+                                char[] readBuffer = new char[amt];
+                                var length = sr.Read(readBuffer, 0, amt);
+                                readBufferQ.Add(readBuffer.Take(length).ToArray());
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            if(InnerConnection == null || !InnerConnection.Connected)
+                            {
+                                OnDisconnected(); ;
+                            }
                         }
                     }
                 }
@@ -179,8 +205,8 @@ namespace TELTAS300Emulator
                 var localInnerConnection = InnerConnection;
                 localOutGoingQ.Dispose();
                 localReadQ.Dispose();
-                localTimer.Dispose();
-                localInnerConnection.Dispose();
+                localTimer?.Dispose();
+                localInnerConnection?.Dispose();
                 outgoingQ = null;
                 readBufferQ = null;
                 messageTimer = null;
